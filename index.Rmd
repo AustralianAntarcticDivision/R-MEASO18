@@ -1,0 +1,403 @@
+---
+title: "R for Antarctic and Southern Ocean science"
+author: "Michael Sumner, Ben Raymond, Anton Van de Putte"
+date: "MEASO18"
+output:
+  xaringan::moon_reader:
+  lib_dir: libs
+  seal: false
+  self_contained: false
+  css: ["extra/extra.css"]
+  chakra: libs/remark-latest.min.js
+  nature:
+    highlightStyle: github
+    highlightLines: false
+---
+
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE)
+options(knitr.kable.NA="")
+knitr::opts_chunk$set(fig.path="extra/",echo=TRUE,warning=FALSE,message=FALSE,cache=TRUE)
+```
+
+class: middle
+background-image: url(extra/Rlogo.png)
+background-size: auto 65%
+background-position: 50% 50%
+  
+# R for Antarctic and Southern Ocean Science
+  
+- context and rOpenSci (Ben)
+- modern state of R (Mike)
+- some of our stuff (Ben, Mike)
+- the biodiversity.aq Antarctic virtual research environment (Anton)
+- general chat
+
+---
+
+# rOpenSci <img style="background-color: white; padding:10px; float:right;clear:none; margin:20px;" width="30%" src="extra/ropensci_logo.png" alt="ropensci logo" />
+  
+rOpenSci: R for reproducible science, open data & software
+
+https://ropensci.org/community/
+  
+Tutorials, use cases, discussion forum, open calls, physical meetings
+
+For R developers/regular users:
+  
+- slack: http://slack.ropensci.org/
+- package onboarding
+
+SCAR/rOpenSci joint initiative to build the Antarctic R community: see the #antarctic channel on slack
+
+
+---
+
+# Antarctic/SO R packages
+  
+See https://github.com/SCAR/antarctic-r-packages
+
+- taxonomy
+- mapping
+- environmental data access
+- ocean colour processing
+- biodiversity, diet data
+- animal tracking
+
+What packages do we need? What tasks/analyses should be easier than they currently are?
+  
+SCAR's github: https://github.com/SCAR
+
+
+---
+class: middle
+background-image: url(extra/Rlogo.png)
+background-size: auto 65%
+background-position: 50% 50%
+
+# Modern state of
+
+```{r mssetup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(fasterize)
+library(sf)
+library(sp)
+library(raster)
+library(raadtools)
+```
+
+
+---
+# The tidyverse
+
+https://www.tidyverse.org
+
+A family of modern, fast, consistent packages. 
+
+The single best guide  http://r4ds.had.co.nz/  (free online!)
+
+Key packages
+
+* **dplyr** - data frame creation, manipulation, subsetting, and merging as`filter`, `select`, `mutate`, `rename`, `join`, consistent with database workflows
+* **readr**, **readxl** - read data frames from text and Excel files
+* **purrr** - functional programming, tools needed for unstructured, list data
+* **ggplot2** - grammar of graphics, consistent visual exploration and plot making from data frame data
+
+These packages work extremely well together. 
+
+
+
+---
+
+# Key spatial R
+
+* sp
+* raster
+* sf
+* rgdal
+
+These work together, somewhat. 
+
+Use google, stackoverflow, gis.stackexchange.com. 
+
+Twitter has a friendly and helpful R community: #rstats
+
+---
+class: middle
+background-image: url(extra/Rlogo.png)
+background-size: auto 65%
+background-position: 50% 50%
+
+# Some of our stuff
+
+---
+
+# Local techniques - a toolbox approach
+
+We're creating R packages and collating related resources.  
+
+SOKI.aq overview of our local tools and approaches: 
+
+http://soki.aq/display/SET/1.+General+Strategy
+
+* [angstroms](https://CRAN.R-project.org/package=angstroms) - bending raster for working with ROMS
+* [rbgm](https://CRAN.R-project.org/package=rbgm) - working with Atlantis BGM Box Geometry Models
+
+---
+
+# A toolbox approach: <u>blueant</u> and raadtools
+
+https://github.com/AustralianAntarcticDivision/blueant
+
+- pre-configured definitions for environmental/satellite data sets
+- functions for maintaining local copies of those data
+
+```{r eval=FALSE, echo=TRUE}
+library(blueant)
+
+## define where we want to store our data
+my_data_dir <- "c:/my/big/data/collection"
+cf <- bb_config(local_file_root=my_data_dir)
+
+## add a few data sets to our configuration
+my_sources <- c("NSIDC SMMR-SSM/I Nasateam sea ice concentration",
+                "IBCSO bathymetry")
+
+cf <- cf %>% bb_add(sources(my_sources))
+
+## go!
+bb_sync(cf)
+```
+
+---
+
+# A toolbox approach: <u>blueant</u> and raadtools
+
+https://github.com/AustralianAntarcticDivision/blueant
+
+- *anyone* can use this to maintain their own copy of these data
+
+- we use this to maintain a central data collection for a community of researchers
+
+- with a scheduled task to keep it updated
+
+- together with `raadtools` and virtual machine capability provides us with a consistent, community-level framework
+
+- separation of data-getting (blueant) with data-access (raadtools)
+
+---
+
+# A toolbox approach: blueant and <u>raadtools</u>
+
+- the `raadtools` package complements `blueant` 
+- it provides functions for reading and manipulating environmental data in a simple and consistent way
+
+https://github.com/AustralianAntarcticDivision/raadtools
+
+```{r, eval = FALSE}
+library(raadtools)
+?readice
+?readsst
+?readssh
+?readcurr
+?readtopo
+
+
+Functions that work on the blueant data collection: 
+
+http://australianantarcticdivision.github.io/raadtools/reference/index.html
+
+```
+
+---
+
+# A toolbox approach: blueant and <u>raadtools</u>
+
+```{r}
+
+(ice <- readice(latest = TRUE))
+
+```
+---
+
+# A toolbox approach: blueant and <u>raadtools</u>
+
+```{r}
+(ssh <- readssh("2017-04-10", xylim = extent(120, 150, -70, -30)))
+
+```
+
+---
+
+# Converting between projections
+
+Raster can reproject between grids to match disparate data, like sea ice
+in a polar projection, sea surface temperature in longitude/latitude. 
+
+```{r}
+sst <- readsst("2017-04-10", xylim  = extent(-180, 180, -90, 0))
+polar_sst <- projectRaster(sst, ice)
+plot(polar_sst, col = palr::sstPal(64))
+
+```
+
+---
+# Converting between projections
+
+Or in the opposite direction. 
+
+```{r}
+longlat_ice <- projectRaster(ice, sst)
+plot(longlat_ice)
+```
+
+---
+class: middle
+background-image: url(extra/Rlogo.png)
+background-size: auto 65%
+background-position: 50% 50%
+
+# More emerging R stuff
+
+---
+# New spatial framework 
+
+The "simple features"" package `sf` provides very fast and more consistent spatial data support, for map data, points, lines, polygons.
+
+* a large shapefile?  try `sf::read_sf`. 
+* convert to old style `as(x, "Spatial")` for use with `raster`, `spdep` ...
+* `sf` support in `ggplot2` is coming
+
+Still in development, but package `ggplot2` from Github has very good plotting for `sf`. Use `devtools::install_github("tidyverse/ggplot2"))`
+
+---
+# geom_sf
+
+```{r geom_sf}
+## a map data set prepared earlier, the CCAMLR statistical areas
+ccamlr <- readRDS("/home/shared/data/assessment/sectors/ccamlr_statareas.rds")
+prj <- raster::projection(ccamlr)
+library(ggplot2)
+library(sf)
+library(raster)
+ice <- raadtools::readice(latest = TRUE)[[1L]]
+ccamlr <- st_transform(st_as_sf(ccamlr), projection(ice))
+
+## convert gridded sea ice to data frame
+names(ice) <- "iceconc"
+iced <- as.data.frame(ice, xy = TRUE)
+```
+
+(See plot on next slide)
+---
+
+```{r geom_sf_plot}
+ggplot(ccamlr) + geom_raster(data = iced, aes(x, y, fill = iceconc)) + 
+  geom_sf(fill = NA, aes(colour = name))
+```
+
+---
+#  fasterize
+
+Merging vector (polygons) and raster (gridded) data can be difficult!  Fasterize is super fast for this. 
+
+Being able to generate a gridded version of a polygon data set can be extremely powerful
+
+- classifying a gridded data set
+- looking up values per polygon
+
+
+```{r fasterize}
+library(fasterize)
+ccamlrgrid <- fasterize(ccamlr, ice, field = "name")
+```
+
+(Plot on next slide)
+
+---
+# fasterize
+
+```{r fastplot}
+plot(ccamlrgrid, col = sample(rainbow(nrow(ccamlr)+1)[-1]))
+```
+
+---
+# mapview, mapedit, plotly
+
+Create interactive maps and even edit map data. 
+
+* [mapview](https://r-spatial.github.io/mapview/)
+* [mapedit](https://CRAN.R-project.org/package=mapedit/)
+* [plotly](https://CRAN.R-project.org/package=plotly)
+
+---
+class: middle
+background-image: url(extra/Rlogo.png)
+background-size: auto 65%
+background-position: 50% 50%
+
+# The Antarctic component of EU-LifeWatch
+
+---
+class: middle
+background-image: url(extra/avdp1.png)
+background-size: 100% auto
+background-position: center center
+
+---
+class: middle
+background-image: url(extra/avdp2.png)
+background-size: 100% auto
+background-position: center center
+
+---
+# For more info
+
+http://marine.lifewatch.eu/
+
+http://lifewatch.be/
+
+http://www.lifewatch.eu
+
+
+---
+class: middle
+background-image: url(extra/avdp4.png)
+background-size: 100% auto
+background-position: center center
+
+---
+class: middle
+background-image: url(extra/avdp5.png)
+background-size: 100% auto
+background-position: center center
+
+---
+class: middle
+background-image: url(extra/avdp6.png)
+background-size: 100% auto
+background-position: center center
+
+---
+class: middle
+background-image: url(extra/avdp7.png)
+background-size: 100% auto
+background-position: center top
+
+<br />
+<br />
+<br />
+
+# R packages
+
+[solong](https://github.com/SCAR/solong)
+
+Allometric equations that relate the body size of Southern Ocean taxa to their body part measurements
+
+[sohungry](https://github.com/SCAR/sohungry)
+
+Access to the SCAR Southern Ocean Diet and Energetics Database
+
+[antanym](https://github.com/SCAR/antanym)
+
+Antarctic geographic place name information. 
